@@ -19,18 +19,10 @@ class CleanupRings(object):
         self.api = api
         self.links = {}
         self.commands = []
-        self.whitelist = [
-            # Must remain in ring-1 with other kernel packages to keep matching
-            # build number, but is required by virtualbox in ring-2.
-            'kernel-syms',
-        ]
+        self.whitelist = ['obs-service-tar_scm', 'obs-service-recompress']
 
     def perform(self):
-        for index, ring in enumerate(self.api.rings):
-            print('# {}'.format(ring))
-            ring_next = self.api.rings[index + 1] if index + 1 < len(self.api.rings) else None
-            self.check_depinfo_ring(ring, ring_next)
-
+        self.check_depinfo_ring('home:coolo:carwos', None)
         print('\n'.join(self.commands))
 
     def find_inner_ring_links(self, prj):
@@ -99,8 +91,7 @@ class CleanupRings(object):
             name = package.attrib['name'].split(':')[0]
             for pkg in package.findall('pkgdep'):
                 if pkg.text not in self.bin2src:
-                    if not pkg.text.startswith('texlive-'): # XXX: texlive bullshit packaging
-                        print('Package {} not found in place'.format(pkg.text))
+                    print('Package {} not found in place'.format(pkg.text))
                     continue
                 b = self.bin2src[pkg.text]
                 self.pkgdeps[b] = name
@@ -121,7 +112,7 @@ class CleanupRings(object):
         return True
 
     def check_image_bdeps(self, project, arch):
-        for dvd in ('000product:openSUSE-dvd5-dvd-{}'.format(arch), 'Test-DVD-{}'.format(arch)):
+        for dvd in ['openSUSE-MicroOS:RawPC']:
             try:
                 url = makeurl(self.api.apiurl, ['build', project, 'images', arch, dvd, '_buildinfo'])
                 root = ET.parse(http_GET(url)).getroot()
@@ -137,7 +128,7 @@ class CleanupRings(object):
                     print("{} not found in bin2src".format(b))
                     continue
                 b = self.bin2src[b]
-                self.pkgdeps[b] = 'MYdvd{}'.format(self.api.rings.index(project))
+                self.pkgdeps[b] = 'MYdvd'
             break
 
     def check_buildconfig(self, project):
@@ -153,43 +144,34 @@ class CleanupRings(object):
 
     def check_requiredby(self, project, package):
         # Prioritize x86_64 bit.
-        for arch in reversed(self.api.cstaging_archs):
-            for fileinfo in fileinfo_ext_all(self.api.apiurl, project, 'standard', arch, package):
-                for requiredby in fileinfo.findall('provides_ext/requiredby[@name]'):
-                    b = self.bin2src[requiredby.get('name')]
-                    if b == package:
-                        # A subpackage depending on self.
-                        continue
-                    self.pkgdeps[package] = b
-                    return True
+        arch='x86_64'
+        for fileinfo in fileinfo_ext_all(self.api.apiurl, project, 'standard', arch, package):
+            for requiredby in fileinfo.findall('provides_ext/requiredby[@name]'):
+                b = self.bin2src[requiredby.get('name')]
+                if b == package:
+                    # A subpackage depending on self.
+                    continue
+                print('# {} is required by {} {}'.format(package, b, requiredby.get('name')))
+                self.pkgdeps[package] = b
+                return True
         return False
 
     def check_depinfo_ring(self, prj, nextprj):
-        if not self.repo_state_acceptable(prj):
-            return False
+        self.fill_pkgdeps(prj, 'standard', 'x86_64')
+        self.check_image_bdeps(prj, 'x86_64')
 
-        self.find_inner_ring_links(prj)
-        for arch in self.api.cstaging_archs:
-            self.fill_pkgdeps(prj, 'standard', arch)
-
-        if self.api.rings.index(prj) == 0:
-            self.check_buildconfig(prj)
-        else:
-            for arch in self.api.cstaging_archs:
-                self.check_image_bdeps(prj, arch)
-
-        for source in self.sources:
+        for source in sorted(self.sources):
+            print('# - {} - {} {}'.format(source, self.pkgdeps.get(source, 'no pkgdeps'), self.links.get(source, 'no link')))
             if (source not in self.pkgdeps and
                 source not in self.links and
                 source not in self.whitelist):
-                if source.startswith('texlive-specs-'): # XXX: texlive bullshit packaging
-                    continue
                 # Expensive check so left until last.
                 if self.check_requiredby(prj, source):
+                    print('# Checked required {}'.format(source))
                     continue
 
                 print('# - {}'.format(source))
-                self.commands.append('osc rdelete -m cleanup {} {}'.format(prj, source))
+                self.commands.append(' osc rdelete -m cleanup {} {}'.format(prj, source))
                 if nextprj:
                     self.commands.append('osc linkpac {} {} {}'.format(self.api.project, source, nextprj))
 

@@ -68,35 +68,7 @@ class Cache(object):
     TTL_SHORT = 5 * 60
     TTL_DUPLICATE = 3
     PATTERNS = {
-        r'/build/[^/]+/_result': TTL_DUPLICATE,
         # For cycles when run via repo-checker cache non-stagings.
-        r'/build/(?:[^/](?!:Staging:))+/[^/]+/[^/]+/_builddepinfo$': TTL_MEDIUM,
-        # Group members cannot be guaranteed, but change rarely.
-        r'/group/[^/?]+$': TTL_SHORT,
-        # Clear target project cache upon request acceptance.
-        r'/request/(\d+)\?.*newstate=accepted': TTL_DUPLICATE,
-        r"/search/package\?match=\[@project='([^']+)'\]$": TTL_LONG,
-        # Potentially expire the latest_updated since it will be the only way to
-        # tell after an adi staging is removed. For now just cache the calls
-        # that occur in rapid succession.
-        r"/search/project/id\?match=starts-with\(@name,'([^']+)\:'\)$": TTL_DUPLICATE,
-        # List of all projects may change, but relevant ones rarely.
-        r'/source$': TTL_LONG,
-        # Sources will be expired with project, could be done on package level.
-        r'/source/([^/?]+)(?:\?.*)?$': TTL_LONG,
-        # Handle origin-manager repetative package_source_hash_history() calls.
-        r'/source/([^/]+)/(?:[^/]+)/(?:_history)$': TTL_SHORT,
-        r'/source/([^/]+)/(?:[^/]+)/(?:_meta|_link)$': TTL_LONG,
-        r'/source/([^/]+)/dashboard/[^/]+': TTL_LONG,
-        r'/source/([^/]+)/_attribute/[^/]+': TTL_DUPLICATE,
-        # Presumably users are not interweaving in short windows.
-        r'/statistics/latest_updated': TTL_SHORT,
-        # Use TTL_DUPLICATE for project _meta as only description changes are listed in latest_updated:
-        # https://github.com/openSUSE/open-build-service/issues/6323
-        r'/source/([^/]+)/_meta$': TTL_DUPLICATE,
-        # Handles clearing local cache on package deletes. Lots of queries like
-        # updating project info, comment, and package additions.
-        r'/source/([^/]+)/(?:[^/?]+)(?:\?[^/]+)?$': TTL_DUPLICATE,
     }
 
     last_updated = {}
