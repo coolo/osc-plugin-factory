@@ -127,8 +127,8 @@ class CleanupRings(object):
                 if b not in self.bin2src:
                     print("{} not found in bin2src".format(b))
                     continue
-                b = self.bin2src[b]
-                self.pkgdeps[b] = 'MYdvd'
+                b2 = self.bin2src[b]
+                self.pkgdeps[b2] = 'MYdvd:{}'.format(b)
             break
 
     def check_buildconfig(self, project):
