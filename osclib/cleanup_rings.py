@@ -22,7 +22,7 @@ class CleanupRings(object):
         self.whitelist = ['obs-service-tar_scm', 'obs-service-recompress']
 
     def perform(self):
-        self.check_depinfo_ring('home:coolo:carwos', None)
+        self.check_depinfo_ring('SUSE:Carwos:1', None)
         print('\n'.join(self.commands))
 
     def find_inner_ring_links(self, prj):
@@ -112,9 +112,9 @@ class CleanupRings(object):
         return True
 
     def check_image_bdeps(self, project, arch):
-        for dvd in ['openSUSE-MicroOS:RawPC']:
+        for dvd in ['base-image', 'sdk-image']:
             try:
-                url = makeurl(self.api.apiurl, ['build', project, 'images', arch, dvd, '_buildinfo'])
+                url = makeurl(self.api.apiurl, ['build', project, 'standard', arch, dvd, '_buildinfo'])
                 root = ET.parse(http_GET(url)).getroot()
             except HTTPError as e:
                 if e.code == 404:
@@ -128,7 +128,7 @@ class CleanupRings(object):
                     print("{} not found in bin2src".format(b))
                     continue
                 b2 = self.bin2src[b]
-                self.pkgdeps[b2] = 'MYdvd:{}'.format(b)
+                self.pkgdeps[b2] = '{}:{}'.format(dvd, b)
             break
 
     def check_buildconfig(self, project):
